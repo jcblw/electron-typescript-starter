@@ -9,9 +9,7 @@ const timeTaken = () => {
 
 const logger = label => str => {
   const prefix = `${label || formatDate(new Date())}`.padEnd(5, ' ')
-  console.log(
-    `${prefix}: ${str} - ${timeTaken()}`
-  )
+  console.log(`${prefix}: ${str} - ${timeTaken()}`)
 }
 
 module.exports.logger = logger

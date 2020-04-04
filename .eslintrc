@@ -1,3 +1,18 @@
 {
-  "extends": "@mujo"
+  "extends": "@mujo",
+  "overrides": [
+    {
+      "files": ["*"],
+      "rules": {
+        "prettier/prettier": "off"
+      }
+    },
+    {
+      "files": ["scripts/*.js", "config/*.js"],
+      "rules": {
+        "global-require": "off",
+        "import/no-extraneous-dependencies": "off"
+      }
+    }
+  ]
 }

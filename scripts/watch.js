@@ -15,8 +15,10 @@ process.on('unhandledRejection', err => {
 // Ensure environment variables are read.
 require('../config/env')
 
+const path = require('path')
 const fs = require('fs-extra')
 const webpack = require('webpack')
+const WebpackServer = require('webpack-dev-server')
 const checkRequiredFiles = require('react-dev-utils/checkRequiredFiles')
 const formatWebpackMessages = require('react-dev-utils/formatWebpackMessages')
 const paths = require('../config/paths')
@@ -41,43 +43,62 @@ const logBuild = ({ stats, warnings }, log) => {
   // })
 }
 
+const host = '0.0.0.0'
+const port = 8080
+const publicPath = 'http://localhost:8080'
+
 const build = () => {
-  const log = logger('build')
+  const log = logger('watch')
   log('Starting build...')
 
-  const compiler = webpack(config)
-  return new Promise((resolve, reject) => {
-    compiler.run((err, stats) => {
-      let messages
-      if (err) {
-        if (!err.message) {
-          return reject(err)
-        }
-        messages = formatWebpackMessages({
-          errors: [err.message],
-          warnings: [],
-        })
-      } else {
-        messages = formatWebpackMessages(
-          stats.toJson({ all: false, warnings: true, errors: true })
-        )
-      }
-      if (messages.errors.length) {
-        // Only keep the first error. Others are often indicative
-        // of the same problem, but confuse the reader with noise.
-        if (messages.errors.length > 1) {
-          messages.errors.length = 1
-        }
-        return reject(new Error(messages.errors.join('\n\n')))
-      }
+  const mainCompiler = webpack(config[0])
+  const appCompiler = webpack(config[1])
 
-      logBuild({ stats, warnings: messages.warnings }, log)
+  // Server is just for the app.
+  const server = new WebpackServer(appCompiler, {
+    port,
+    contentBase: paths.Build,
+    hot: true,
+  })
+  server.listen(port, host, () => {
+    console.log(`🚀 Starting server on ${publicPath}`)
+  })
 
-      return resolve({
-        stats,
-        warnings: messages.warnings,
+  mainCompiler.watch({}, async (err, stats) => {
+    let messages
+    if (err) {
+      if (!err.message) {
+        return log(err)
+      }
+      messages = formatWebpackMessages({
+        errors: [err.message],
+        warnings: [],
       })
-    })
+    } else {
+      messages = formatWebpackMessages(
+        stats.toJson({ all: false, warnings: true, errors: true })
+      )
+    }
+    if (messages.errors.length) {
+      // Only keep the first error. Others are often indicative
+      // of the same problem, but confuse the reader with noise.
+      if (messages.errors.length > 1) {
+        messages.errors.length = 1
+      }
+      return log(new Error(messages.errors.join('\n\n')))
+    }
+
+    logBuild({ stats, warnings: messages.warnings }, log)
+
+    await fs.copy(
+      paths.DevHtml,
+      path.resolve(paths.Build, './index.html')
+    )
+
+    return {
+      stats,
+      warnings: messages.warnings,
+    }
   })
 }
 
@@ -90,7 +111,7 @@ const startBuild = async () => {
 }
 
 // Warn and crash if required files are missing
-if (!checkRequiredFiles([paths.App, paths.Main, paths.Html])) {
+if (!checkRequiredFiles([paths.App, paths.Main, paths.DevHtml])) {
   process.exit(1)
 }
 
